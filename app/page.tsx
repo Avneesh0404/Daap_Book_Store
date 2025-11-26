@@ -3,78 +3,20 @@ import { useState, useEffect } from "react";
 import atm_abi from "../artifacts/contracts/BookStore.sol/BookStore.json";
 import { ethers } from "ethers";
 
-const usePurchase = (contract: any) => {
-  async function purchaseBook(bookId: any, quantity: any) {
-    try {
-      //@ts-ignore
-      await window.ethereum.enable();
-      const transaction = await contract.purchaseBook(bookId, quantity, {
-        value: ethers.utils.parseEther("100"),
-      });
-
-      const receipt = await transaction.wait();
-
-      console.log("Book purchased:", receipt);
-      alert("Book purchased successfully!");
-    } catch (error) {
-      console.error("Error purchasing book:", error);
-      alert("Error purchasing book. Check the console for details.");
-    }
-  }
-
-  return purchaseBook;
-};
-
-const useAddBook = (contract: any) => {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const addBook = async (title: any, author: any, price: any, stock: any) => {
-    try {
-      setIsLoading(true);
-      await contract.addBook(title, author, price, stock);
-      setIsLoading(false);
-
-      alert("Book added successfully!");
-    } catch (error) {
-      console.error("Error adding book:", error);
-      setIsLoading(false);
-    }
-  };
-
-  return { addBook, isLoading };
-};
-
-const useGetBook = (contract: any) => {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const getBook = async (bookId: any) => {
-    console.log(bookId);
-    try {
-      setIsLoading(true);
-      console.log('abcd');
-      const book = await contract.getBook(bookId);
-      setIsLoading(false);
-      console.log("Book details:", book);
-      return {
-        title: book[1],
-        author: book[2],
-        price: ethers.utils.formatEther(book[3]),
-        stock: (ethers.utils.formatEther(book[4]) as unknown) as number * 1e18,
-      };
-    } catch (error) {
-      console.error("Error getting book:", error);
-      setIsLoading(false);
-    }
-  };
-
-  return { isLoading, getBook };
-};
-
 export default function Home() {
   const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   const contractABI = atm_abi.abi;
 
   const [contract, setContract] = useState<any>(null);
+  const [books, setBooks] = useState<any[]>([]);
+  const [bookData, setBookData] = useState({
+    title: "",
+    author: "",
+    price: "",
+    stock: "",
+  });
+  const [bookId, setBookId] = useState(0);
+  const [quantity, setQuantity] = useState(0);
 
   const connectToContract = async () => {
     try {
@@ -96,189 +38,171 @@ export default function Home() {
     }
   };
 
-  const purchaseBook = usePurchase(contract);
-  const { addBook, isLoading } = useAddBook(contract);
-  const { isLoading: isBookLoading, getBook } = useGetBook(contract);
-
-  const [bookIdPurchase, setBookIdPurchase] = useState(0);
-  const [quantity, setQuantity] = useState(0);
-
-  const [bookDataAdd, setBookDataAdd] = useState({
-    title: "",
-    author: "",
-    price: "",
-    stock: "",
-  });
-
-  const [bookDataGet, setBookDataGet] = useState({
-    title: "",
-    author: "",
-    price: "",
-    stock: "",
-  });
-
-  const [bookIdGet, setBookIdGet] = useState(0);
-
-  const handleBookIdGetChange = (e: any) => {
-    setBookIdGet(e.target.value);
+  const fetchBooks = async () => {
+    if (!contract) return;
+    try {
+      const bookCount = await contract.bookIdCounter();
+      const fetchedBooks = [];
+      for (let i = 1; i <= bookCount; i++) {
+        const book = await contract.getBook(i);
+        fetchedBooks.push({
+          id: book[0].toString(),
+          title: book[1],
+          author: book[2],
+          price: ethers.utils.formatEther(book[3]),
+          stock: ethers.BigNumber.from(book[4]).toNumber(),
+        });
+      }
+      setBooks(fetchedBooks);
+    } catch (error) {
+      console.error("Error fetching books:", error);
+    }
   };
 
-  const handleBookIdPurchaseChange = (e: any) => {
-    setBookIdPurchase(e.target.value);
+  const addBook = async () => {
+    if (!contract) return;
+    try {
+      await contract.addBook(
+        bookData.title,
+        bookData.author,
+        ethers.utils.parseEther(bookData.price),
+        bookData.stock
+      );
+      alert("Book added successfully!");
+      fetchBooks();
+    } catch (error) {
+      console.error("Error adding book:", error);
+    }
   };
 
-  const handleQuantityChange = (e: any) => {
-    setQuantity(e.target.value);
+  const purchaseBook = async () => {
+    if (!contract) return;
+    try {
+      const transaction = await contract.purchaseBook(bookId, quantity, {
+        value: ethers.utils.parseEther("100"),
+      });
+      await transaction.wait();
+      alert("Book purchased successfully!");
+      fetchBooks();
+    } catch (error) {
+      console.error("Error purchasing book:", error);
+    }
   };
 
-  const bookDataAddChange = (e: any) => {
-    setBookDataAdd({
-      ...bookDataAdd,
-      [e.target.id]: e.target.value,
-    });
-  };
+  useEffect(() => {
+    if (contract) fetchBooks();
+  }, [contract]);
 
   return (
-    <main className="min-h-screen px-24 py-12 flex flex-col">
-      <h1 className="text-5xl font-bold w-full text-center pb-8 mb-8 text-blue-500 border-b">Book Store</h1>
-
-      {
-        //@ts-ignore
-        !contract && 
-        (
+    <main className="min-h-screen px-8 py-12 bg-gray-900 text-gray-100">
+      <header className="text-center mb-12">
+        <h1 className="text-5xl font-bold text-blue-400">Book Store</h1>
+        {!contract && (
           <button
             onClick={connectToContract}
-            className="btn btn-primary mt-8 mx-auto"
+            className="mt-6 bg-blue-500 text-white py-2 px-6 rounded-lg shadow-lg hover:bg-blue-600"
           >
             Connect to Contract
           </button>
-        )
-      }
+        )}
+      </header>
 
-      { 
-        //@ts-ignore
-        contract &&
-        (<div className="flex flex-wrap gap-8 mt-4">
-        <div className="flex flex-col border p-4 gap-4 rounded-lg">
-          <label htmlFor="bookId">Book ID:</label>
-          <input
-            type="number"
-            id="bookId"
-            value={bookIdPurchase}
-            className="input input-bordered w-full max-w-xs"
-            onChange={handleBookIdPurchaseChange}
-          />
-          <label htmlFor="quantity">Quantity:</label>
-          <input
-            className="input input-bordered w-full max-w-xs"
-            type="number"
-            id="quantity"
-            value={quantity}
-            onChange={handleQuantityChange}
-          />
-          <button
-            onClick={async () => {
-              await purchaseBook(bookIdPurchase, quantity);
-            }}
-            className="btn btn-primary mt-4"
-          >
-            Purchase
-          </button>
-        </div>
-        <div className="flex flex-col border p-4 gap-4 rounded-lg">
-          <label htmlFor="title">Title:</label>
-          <input
-            className="input input-bordered w-full max-w-xs"
-            type="text"
-            id="title"
-            value={bookDataAdd.title}
-            onChange={bookDataAddChange}
-          />
-          <label htmlFor="author">Author:</label>
-          <input
-            className="input input-bordered w-full max-w-xs"
-            type="text"
-            id="author"
-            value={bookDataAdd.author}
-            onChange={bookDataAddChange}
-          />
-          <label htmlFor="price">Price:</label>
-          <input
-            className="input input-bordered w-full max-w-xs"
-            type="number"
-            id="price"
-            value={bookDataAdd.price}
-            onChange={bookDataAddChange}
-          />
-          <label htmlFor="stock">Stock:</label>
-          <input
-            className="input input-bordered w-full max-w-xs"
-            type="number"
-            id="stock"
-            value={bookDataAdd.stock}
-            onChange={bookDataAddChange}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              addBook(
-                bookDataAdd.title,
-                bookDataAdd.author,
-                bookDataAdd.price,
-                bookDataAdd.stock
-              );
-            }}
-          >
-            Add Book
-          </button>
-        </div>
-
-        <div className="p-4 border rounded-lg w-1/3">
-
-          <div className="w-full flex flex-col gap-4">
-            <label htmlFor="bookId">Book ID:</label>
+      {contract && (
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="p-6 bg-gray-800 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold mb-4">Add a Book</h2>
+            <label className="block mb-2">Title:</label>
+            <input
+              type="text"
+              value={bookData.title}
+              onChange={(e) =>
+                setBookData({ ...bookData, title: e.target.value })
+              }
+              className="w-full p-2 rounded bg-gray-700 text-gray-100"
+            />
+            <label className="block mt-4 mb-2">Author:</label>
+            <input
+              type="text"
+              value={bookData.author}
+              onChange={(e) =>
+                setBookData({ ...bookData, author: e.target.value })
+              }
+              className="w-full p-2 rounded bg-gray-700 text-gray-100"
+            />
+            <label className="block mt-4 mb-2">Price:</label>
+            <input
+              type="text"
+              value={bookData.price}
+              onChange={(e) =>
+                setBookData({ ...bookData, price: e.target.value })
+              }
+              className="w-full p-2 rounded bg-gray-700 text-gray-100"
+            />
+            <label className="block mt-4 mb-2">Stock:</label>
             <input
               type="number"
-              id="bookId"
-              value={bookIdGet}
-              onChange={handleBookIdGetChange}
-              className="input input-bordered w-full"
+              value={bookData.stock}
+              onChange={(e) =>
+                setBookData({ ...bookData, stock: e.target.value })
+              }
+              className="w-full p-2 rounded bg-gray-700 text-gray-100"
             />
             <button
-              onClick={async () => {
-                try {
-                  const book = await getBook(bookIdGet);
-                  setBookDataGet({
-                    title: book?.title,
-                    author: book?.author,
-                    price: book?.price.toString() as string,
-                    stock: book?.stock.toString() as string,
-                  });
-                } catch(err) {
-                  console.log(err);
-                }
-              }}
-              className="btn btn-primary"
+              onClick={addBook}
+              className="mt-6 bg-green-500 text-white py-2 px-6 rounded-lg shadow-lg hover:bg-green-600"
             >
-              Get Book
+              Add Book
             </button>
           </div>
 
-          <div className="flex flex-col gap-4 mt-4">
-            <h2 className="text-xl">Book Details</h2>
-            {isBookLoading ? (
-              <p>Loading...</p>
-            ) : (
-              <div>
-                <p>Title: {bookDataGet?.title}</p>
-                <p>Author: {bookDataGet?.author}</p>
-                <p>Price: {bookDataGet?.price}</p>
-                <p>Stock: {bookDataGet?.stock}</p>
-              </div>
-            )}
+          <div className="p-6 bg-gray-800 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold mb-4">Purchase a Book</h2>
+            <label className="block mb-2">Book ID:</label>
+            <input
+              type="number"
+              value={bookId}
+              onChange={(e) => setBookId(Number(e.target.value))}
+              className="w-full p-2 rounded bg-gray-700 text-gray-100"
+            />
+            <label className="block mt-4 mb-2">Quantity:</label>
+            <input
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+              className="w-full p-2 rounded bg-gray-700 text-gray-100"
+            />
+            <button
+              onClick={purchaseBook}
+              className="mt-6 bg-yellow-500 text-white py-2 px-6 rounded-lg shadow-lg hover:bg-yellow-600"
+            >
+              Purchase
+            </button>
           </div>
-        </div>
-      </div>)}
+
+          <div className="p-6 bg-gray-800 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold mb-4">Book List</h2>
+            <div className="space-y-4">
+              {books.map((book) => (
+                <div key={book.id} className="p-4 bg-gray-700 rounded-lg">
+                  <h3 className="text-lg font-bold text-blue-300">
+                    {book.title}
+                  </h3>
+                  <p className="text-gray-400">ID: {book.id}</p>
+                  <p className="text-gray-400">Author: {book.author}</p>
+                  <p className="text-gray-400">Price: {book.price} ETH</p>
+                  <p className="text-gray-400">Stock: {book.stock}</p>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setBooks([])}
+              className="mt-6 bg-red-500 text-white py-2 px-6 rounded-lg shadow-lg hover:bg-red-600"
+            >
+              Clear Book List
+            </button>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

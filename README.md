@@ -90,9 +90,3 @@ npm run dev
     - Connect your MetaMask wallet to the   application.
     - Provide the book ID
     - Click the "Get Book" button to initiate the transaction and get the book details.
-
-
-## Authors
-
-Pranay Raj  
-[Linkedin](https://www.linkedin.com/in/masterpranay/)
