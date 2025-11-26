@@ -39,6 +39,7 @@ contract BookStore {
     // Purchase a book
     function purchaseBook(uint256 _bookId, uint256 _quantity) external payable {
         require(_quantity > 0, "Quantity must be greater than 0");
+        require(_bookId > 0, "Book ID must be greater than 0");
         require(books[_bookId].id != 0, "Invalid book ID");
         require(books[_bookId].stock >= _quantity, "Insufficient stock");
         require(msg.value >= books[_bookId].price * _quantity, "Insufficient funds");

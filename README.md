@@ -39,6 +39,18 @@ npm run dev
 ```
 Access the application at `http://localhost:3000`.
 
+## Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```
+NEXT_PUBLIC_CONTRACT_ADDRESS=<deployed_contract_address>
+NEXT_PUBLIC_NETWORK=<network_name>
+NEXT_PUBLIC_PORT=<port_number>
+```
+
+Replace `<deployed_contract_address>`, `<network_name>`, and `<port_number>` with the appropriate values for your deployment.
+
 ## Usage
 1. **Add Books**: Fill in the book details and click "Add Book".
 2. **Purchase Books**: Enter the book ID and quantity, then click "Purchase".
