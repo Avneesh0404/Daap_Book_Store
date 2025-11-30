@@ -4,7 +4,7 @@ import atm_abi from "../artifacts/contracts/BookStore.sol/BookStore.json";
 import { ethers } from "ethers";
 
 export default function Home() {
-  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+  const contractAddress = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";
   const contractABI = atm_abi.abi;
 
   const [contract, setContract] = useState<any>(null);
@@ -75,19 +75,31 @@ export default function Home() {
     }
   };
 
-  const purchaseBook = async () => {
-    if (!contract) return;
-    try {
-      const transaction = await contract.purchaseBook(bookId, quantity, {
-        value: ethers.utils.parseEther("100"),
-      });
-      await transaction.wait();
-      alert("Book purchased successfully!");
-      fetchBooks();
-    } catch (error) {
-      console.error("Error purchasing book:", error);
-    }
-  };
+const purchaseBook = async () => {
+  if (!contract) return alert("Contract not connected");
+  try {
+    // Fetch the book details from blockchain
+    const book = await contract.books(bookId);
+    const bookPrice = book.price; // price in wei
+    const totalCost = bookPrice.mul(quantity); // total = price * quantity
+
+    console.log("Book price (wei):", bookPrice.toString());
+    console.log("Total cost (wei):", totalCost.toString());
+
+    // ✅ Send the exact total cost (in wei)
+    const transaction = await contract.purchaseBook(bookId, quantity, {
+      value: totalCost,
+    });
+
+    await transaction.wait();
+    alert("Book purchased successfully!");
+    fetchBooks();
+  } catch (error) {
+    console.error("Error purchasing book:", error);
+    alert("Purchase failed. Check console for details.");
+  }
+};
+
 
   useEffect(() => {
     if (contract) fetchBooks();
